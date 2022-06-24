@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Afghanistan</title>
+<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+<link href="https://api.mapbox.com/mapbox-gl-js/v2.7.0/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.7.0/mapbox-gl.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+<style>
+	body { margin: 0; padding: 0; }
+
+	#map { position: absolute; top: 0; bottom: 0; width: 100%; }
+
+	#layerSwitcher { 
+		position: relative; 
+		top: 0; 
+		float: right; 
+		margin-right:10px; 
+		margin-top:10px; 
+		padding:5px;
+		padding-right:10px;
+		z-index:9999;
+		background-color:white;
+		border-radius: 5px;
+		box-shadow: 0px 0px 0px 2px rgba(0,0,0,0.1)	
+	}
+</style>
+</head>
+<body>
+<div id="map">
+	<div id="layerSwitcher">
+		<input type="radio" id="returned" name="popRadio" value="returned" checked>
+		<label for="returned"><svg height="22" width="25"><circle cx="12" cy="15" r="7" fill="#8395B9" /></svg>Returned refugees</label><br>
+		<input type="radio" id="refugees" name="popRadio" value="refugees">
+		<label for="refugees"><svg height="22" width="25"><circle cx="12" cy="15" r="7" fill="#0072BC" /></svg>Refugees</label><br>
+	</div>
+</div>
+<script>
+	mapboxgl.accessToken = 'pk.eyJ1IjoidW5oY3IiLCJhIjoiY2wxMGcyajhlMDE1ZzNkbzh0NmVmdTZreSJ9.Gsnxt_PiXbJ1LfbgbQEzQA'; // MapBox Token
+	
+	// returned settings
+		//URL returned data
+		ret_url = "https://data.unhcr.org/population/get/sublocation?geo_id=575&population_group=4955"
+		// empty geojson for returned
+		ret_data = {"type": "FeatureCollection","features": []}
+		// set max radius of circles for returned
+		ret_max_radius = 30
+		// set a max value to zero
+		ret_max_value = 0
+	
+	//refugees settings
+		//URL refugees data
+		ref_url = "https://data.unhcr.org/population/get/sublocation?geo_id=575&population_group=5028&forcesublocation=0&fromDate=1900-01-01"
+		// empty geojson for refugees
+		ref_data = {"type": "FeatureCollection","features": []}
+		// set max radius for refugees
+		ref_max_radius = 30
+		// set a max value to zero
+		ref_max_value = 0
+	
+	//map
+	const map = new mapboxgl.Map({
+		container: 'map', // container ID
+		style: 'mapbox://styles/unhcr/ckvl4xy2mj45z15mpkq6w2nv8', // style URL
+		center: [67.54,33.561], // starting position [lng, lat]
+		zoom: 5.5 // starting zoom
+	});
+	
+	//wait for style mpa to load (mandatory for mapbox)
+	map.on('style.load', function () {
+	
+	// RETURNED LAYER
+		// adding returnee source
+			map.addSource('ret', {
+				'type': 'geojson',
+				'data': ret_data
+			})
+			
+			//adding returnee layer
+			map.addLayer({
+				'id': 'ret',
+				'type': 'circle',
+				'source': 'ret',
+				'paint': {
+					'circle-radius': ['get','radius'],
+					'circle-color': '#8395B9',
+					'circle-opacity': 0.7,
+					'circle-stroke-color':'#8395B9',
+					'circle-stroke-opacity':1,
+					'circle-stroke-width':1
+				}
+			});
+			
+		// getting data and building layer
+		$.getJSON(ret_url,function(result){
+			// looping through records and creating geoJSON points + finding max value
+			for (var i in result.data){
+				var point = {
+				  "type": "Feature",
+				  "properties": {
+					"name": result.data[i].geomaster_name,
+					"value": Number(result.data[i].individuals)
+				  },
+				  "geometry": {
+					"type": "Point",
+					"coordinates": [
+					  result.data[i].centroid_lon,
+					  result.data[i].centroid_lat
+					]
+				  }
+				}
+				// loading geojson point into data
+				ret_data.features.push(point)
+				//finding max value
+				if(Number(result.data[i].individuals) > ret_max_value){ret_max_value = Number(result.data[i].individuals)}
+			}
+			
+			// re-looping through features to set radius based on max value
+			for (var i in ret_data.features){
+				ret_data.features[i].properties.radius = Math.sqrt(ret_data.features[i].properties.value/ret_max_value)*ret_max_radius
+			}
+			
+			//setting the data
+			map.getSource("ret").setData(ret_data);
+		})
+		
+		
+	// REFUGEES LAYER
+		// adding returnee source
+			map.addSource('ref', {
+				'type': 'geojson',
+				'data': ref_data
+			})
+			
+			//adding returnee layer
+			map.addLayer({
+				'id': 'ref',
+				'type': 'circle',
+				'source': 'ref',
+				'paint': {
+					'circle-radius': ['get','radius'],
+					'circle-color': '#0072BC',
+					'circle-opacity': 0.7,
+					'circle-stroke-color':'#0072BC',
+					'circle-stroke-opacity':1,
+					'circle-stroke-width':1
+				}
+			});
+		// getting data and building layer
+		$.getJSON(ref_url,function(result){
+			// looping through records and creating geoJSON points + finding max value
+			for (var i in result.data){
+				var point = {
+				  "type": "Feature",
+				  "properties": {
+					"name": result.data[i].geomaster_name,
+					"value": Number(result.data[i].individuals)
+				  },
+				  "geometry": {
+					"type": "Point",
+					"coordinates": [
+					  result.data[i].centroid_lon,
+					  result.data[i].centroid_lat
+					]
+				  }
+				}
+				// loading geojson point into data
+				ref_data.features.push(point)
+				//finding max value
+				if(Number(result.data[i].individuals) > ref_max_value){ref_max_value = Number(result.data[i].individuals)}
+			}
+			
+			// re-looping through features to set radius based on max value
+			for (var i in ref_data.features){
+				ref_data.features[i].properties.radius = Math.sqrt(ref_data.features[i].properties.value/ref_max_value)*ref_max_radius
+			}
+			
+			//setting the data
+			//map.getSource("ref").setData(ref_data);
+		})
+		
+		
+		//layer switcher
+		var radios = document.querySelectorAll('input[type=radio][name="popRadio"]');
+		function changeHandler(event) {
+			if (this.value == 'returned'){
+				map.getSource("ret").setData(ret_data);
+				map.getSource("ref").setData({"type": "FeatureCollection","features": []});
+			}
+			else if (this.value == 'refugees'){
+				map.getSource("ret").setData({"type": "FeatureCollection","features": []});
+				map.getSource("ref").setData(ref_data);
+			}
+		  
+		}
+		Array.prototype.forEach.call(radios, function(radio) {
+		   radio.addEventListener('change', changeHandler);
+		});
+		//end layer switcher
+		
+		
+		// POPUPS
+		var popup = new mapboxgl.Popup({
+			closeButton: false,
+			closeOnClick: false
+		});
+		
+		//RETURNEES popups
+		map.on('mousemove', 'ret', function (e) {
+			
+			var coordinates = e.features[0].geometry.coordinates.slice();
+			var description = '<b>'+e.features[0].properties.name+'</b><br><b>'+e.features[0].properties.value+'</b> returned refugees';
+			while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+				coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+			}
+			 
+			popup.setLngLat(coordinates).setHTML(description).addTo(map);
+		});
+		map.on('mouseleave', 'ret', function () {
+			map.getCanvas().style.cursor = '';
+			popup.remove();
+		});
+		// Change the cursor to a pointer when the mouse is over the places layer.
+		map.on('mouseenter', 'ret', function () {
+			map.getCanvas().style.cursor = 'pointer';
+		});
+		// Change it back to a pointer when it leaves.
+		map.on('mouseleave', 'ret', function () {
+			map.getCanvas().style.cursor = '';
+		});
+		
+		//REFUGEES popups
+		map.on('mousemove', 'ref', function (e) {
+			
+			var coordinates = e.features[0].geometry.coordinates.slice();
+			var description = '<b>'+e.features[0].properties.name+'</b><br><b>'+e.features[0].properties.value+'</b> refugees';
+			while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+				coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+			}
+			 
+			popup.setLngLat(coordinates).setHTML(description).addTo(map);
+		});
+		map.on('mouseleave', 'ref', function () {
+			map.getCanvas().style.cursor = '';
+			popup.remove();
+		});
+		// Change the cursor to a pointer when the mouse is over the places layer.
+		map.on('mouseenter', 'ref', function () {
+			map.getCanvas().style.cursor = 'pointer';
+		});
+		// Change it back to a pointer when it leaves.
+		map.on('mouseleave', 'ref', function () {
+			map.getCanvas().style.cursor = '';
+		});
+	
+	})
+	
+
+</script>
+ 
+</body>
+</html>
